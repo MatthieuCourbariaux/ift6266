@@ -1,0 +1,77 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:research.code.pylearn2.datasets.timit.TIMIT {
+        which_set: 'train',
+        frame_length: &flen 160,
+        frames_per_example: &fpe 1,
+        samples_to_predict: &ylen 1,
+    },
+    model: !obj:mlp_with_source.MLPWithSource {
+        layers: [
+            !obj:pylearn2.models.mlp.RectifiedLinear {
+                layer_name: 'h1',
+                dim: 300,
+                irange: 0.05,
+            },
+            !obj:pylearn2.models.mlp.RectifiedLinear {
+                layer_name: 'h2',
+                dim: 300,
+                irange: 0.05,
+            },
+            !obj:pylearn2.models.mlp.Linear {
+                layer_name: 'y',
+                dim: *ylen,
+                irange: 0.,
+            },
+        ],
+        input_space: !obj:pylearn2.space.CompositeSpace {
+            components: [
+                !obj:pylearn2.space.VectorSpace {
+                    dim: *flen,
+                },
+                !obj:pylearn2.space.VectorSpace {
+                    dim: 62,
+                },
+            ],
+        },
+        input_source: ['features', 'phones'],
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        learning_rate: .01,
+        batch_size: 128,
+        train_iteration_mode: 'random_uniform',
+        monitor_iteration_mode: 'random_uniform',
+        batches_per_iter: 5000,
+        monitoring_batches: 500,
+        monitoring_dataset: {
+            'train': *train,
+            'valid': !obj:research.code.pylearn2.datasets.timit.TIMIT {
+                which_set: 'valid',
+                frame_length: *flen,
+                frames_per_example: *fpe,
+                samples_to_predict: *ylen,
+            },
+            'test': !obj:research.code.pylearn2.datasets.timit.TIMIT {
+                which_set: 'test',
+                frame_length: *flen,
+                frames_per_example: *fpe,
+                samples_to_predict: *ylen,
+            },
+        },
+        cost: !obj:pylearn2.costs.mlp.Default {},
+        termination_criterion: !obj:pylearn2.termination_criteria.And {
+            criteria: [
+                !obj:pylearn2.termination_criteria.MonitorBased {
+                    channel_name: "valid_objective",
+                    prop_decrease: 0.,
+                    N: 10
+                }
+            ]
+        },
+    },
+    extensions: [
+        !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+            channel_name: 'valid_objective',
+            save_path: "/u/courbarm/mlp_62+160_300_300_1.pkl"
+        }
+    ]
+}
